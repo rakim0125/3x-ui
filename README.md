@@ -27,8 +27,37 @@ As an enhanced fork of the original X-UI project, 3X-UI provides improved stabil
 - **OpenAPI Support** - Full REST API for programmatic management with API Key authentication
 - **Registry Node** - Automatic node registration and heartbeat for distributed deployments
 - **API Key Management** - Create, list, and delete API keys from the web panel
+- **Default inbound on first install** - If the database has no inbounds yet, a **VLESS** inbound is created on port **443** with **REALITY** (TCP, `xtls-rprx-vision`, dest/SNI `www.microsoft.com`, uTLS `chrome`). X25519 keys and a short ID are generated at init; adjust or remove it in the panel as needed.
 
 See [apidoc.md](/apidoc.md) for complete API documentation.
+
+## Configuration
+
+### Registry nodes
+
+Registry root URLs can be set in this order:
+
+1. Environment variables `XUI_REGISTRY_NODES` or `REGISTRY_NODES` (comma-separated URLs).
+2. `XUI_REGISTRY_NODES_FILE` pointing to a file (one URL per line, `#` comments allowed).
+3. File `{XUI_DB_FOLDER}/registry_nodes` under your data directory.
+4. Built-in defaults from the binary if nothing else is present.
+
+See [`.env.example`](/.env.example) and [`config/registry_nodes.example`](/config/registry_nodes.example).
+
+## Linux binary package (from source)
+
+To build static Linux binaries and tarballs (amd64 + arm64):
+
+```bash
+bash packaging/build-linux-direct.sh
+```
+
+Artifacts: `dist/x-ui-linux-<arch>-direct-<git-describe>.tar.gz`.
+
+- On **macOS**, [Zig](https://ziglang.org/) is required for musl cross-compilation (e.g. `brew install zig`).
+- On **Linux**, set `ONLY_NATIVE=1` to build only the current architecture.
+
+After extracting a tarball, run `sudo bash install-binary-linux.sh` (the script may download Xray and geo assets during install).
 
 ## Quick Start
 
