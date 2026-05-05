@@ -96,10 +96,11 @@ type Server struct {
 	httpServer *http.Server
 	listener   net.Listener
 
-	index *controller.IndexController
-	panel *controller.XUIController
-	api   *controller.APIController
-	ws    *controller.WebSocketController
+	index   *controller.IndexController
+	panel   *controller.XUIController
+	api     *controller.APIController
+	openapi *controller.OpenAPIController
+	ws      *controller.WebSocketController
 
 	xrayService    service.XrayService
 	settingService service.SettingService
@@ -269,6 +270,7 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 	s.index = controller.NewIndexController(g)
 	s.panel = controller.NewXUIController(g)
 	s.api = controller.NewAPIController(g)
+	s.openapi = controller.NewOpenAPIController(g)
 
 	// Initialize WebSocket hub
 	s.wsHub = websocket.NewHub()
@@ -341,6 +343,14 @@ func (s *Server) startTask() {
 		j := job.NewLdapSyncJob()
 		// job has zero-value services with method receivers that read settings on demand
 		s.cron.AddJob(runtime, j)
+	}
+
+	// Node registration heartbeat (every 1 minute)
+	registerJob := job.NewNodeRegisterJob()
+	if registerJob.IsEnabled() {
+		go registerJob.Run()
+		s.cron.AddJob("@every 1m", registerJob)
+		logger.Info("Node registration enabled, heartbeat every 1 minute")
 	}
 
 	// Make a traffic condition every day, 8:30

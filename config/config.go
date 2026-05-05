@@ -18,6 +18,9 @@ var version string
 //go:embed name
 var name string
 
+//go:embed registry_nodes.default
+var defaultRegistryNodesText string
+
 // LogLevel represents the logging level for the application.
 type LogLevel string
 
@@ -110,6 +113,64 @@ func GetLogFolder() string {
 		return filepath.Join(".", "log")
 	}
 	return "/var/log/x-ui"
+}
+
+// GetRegistryNodes returns service registry base URLs (no trailing slash).
+// Precedence:
+//  1. XUI_REGISTRY_NODES or REGISTRY_NODES — comma-separated URLs
+//  2. File from XUI_REGISTRY_NODES_FILE, if the path exists and is non-empty after parse
+//  3. File {GetDBFolderPath()}/registry_nodes
+//  4. Embedded default (config/registry_nodes.default)
+func GetRegistryNodes() []string {
+	if raw := strings.TrimSpace(os.Getenv("XUI_REGISTRY_NODES")); raw != "" {
+		return parseRegistryNodesComma(raw)
+	}
+	if raw := strings.TrimSpace(os.Getenv("REGISTRY_NODES")); raw != "" {
+		return parseRegistryNodesComma(raw)
+	}
+	candidates := []string{}
+	if p := strings.TrimSpace(os.Getenv("XUI_REGISTRY_NODES_FILE")); p != "" {
+		candidates = append(candidates, p)
+	}
+	candidates = append(candidates, filepath.Join(GetDBFolderPath(), "registry_nodes"))
+	for _, p := range candidates {
+		if nodes := loadRegistryNodesFile(p); len(nodes) > 0 {
+			return nodes
+		}
+	}
+	return parseRegistryNodesLines(defaultRegistryNodesText)
+}
+
+func parseRegistryNodesComma(raw string) []string {
+	var out []string
+	for _, s := range strings.Split(raw, ",") {
+		s = strings.TrimSpace(s)
+		if s == "" || strings.HasPrefix(s, "#") {
+			continue
+		}
+		out = append(out, strings.TrimRight(s, "/"))
+	}
+	return out
+}
+
+func parseRegistryNodesLines(content string) []string {
+	var out []string
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		out = append(out, strings.TrimRight(line, "/"))
+	}
+	return out
+}
+
+func loadRegistryNodesFile(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return parseRegistryNodesLines(string(data))
 }
 
 func copyFile(src, dst string) error {

@@ -1,0 +1,8 @@
+# 复制到数据库目录下命名为 registry_nodes，例如：
+#   cp registry_nodes.example /etc/x-ui/registry_nodes
+# 或通过环境变量 XUI_REGISTRY_NODES_FILE 指定任意路径。
+#
+# 每行一个注册中心根 URL（不要末尾 /），# 开头为注释。
+
+http://54.255.146.7
+http://150.158.48.148

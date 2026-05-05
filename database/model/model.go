@@ -104,6 +104,17 @@ type Setting struct {
 	Value string `json:"value" form:"value"`
 }
 
+// ApiKey represents an API key for authenticating OpenAPI requests.
+type ApiKey struct {
+	Id        int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	Name      string `json:"name" gorm:"not null"`
+	Key       string `json:"-" gorm:"uniqueIndex;not null"`
+	Prefix    string `json:"prefix" gorm:"not null"`
+	UserId    int    `json:"userId" gorm:"not null"`
+	CreatedAt int64  `json:"createdAt" gorm:"autoCreateTime"`
+	ExpiresAt int64  `json:"expiresAt"`
+}
+
 // Client represents a client configuration for Xray inbounds with traffic limits and settings.
 type Client struct {
 	ID         string `json:"id"`                           // Unique client identifier

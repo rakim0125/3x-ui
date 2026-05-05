@@ -89,6 +89,68 @@
                     </template>
                     {{ template "settings/panel/subscription/json" . }}
                   </a-tab-pane>
+                  <a-tab-pane key="6" :style="{ paddingTop: '20px' }">
+                    <template #tab>
+                      <a-icon type="key"></a-icon>
+                      <span>API Keys</span>
+                    </template>
+                    <a-row :gutter="[isMobile ? 8 : 16, 16]">
+                      <a-col :xs="24" :lg="12">
+                        <a-card title="Create API Key" hoverable>
+                          <a-form layout="vertical">
+                            <a-form-item label="Name">
+                              <a-input v-model="apiKeyForm.name" placeholder="automation"></a-input>
+                            </a-form-item>
+                            <a-form-item label="Expires At (Unix timestamp, 0 means never)">
+                              <a-input-number v-model="apiKeyForm.expiresAt" :min="0" :step="1"
+                                style="width: 100%;"></a-input-number>
+                            </a-form-item>
+                            <a-form-item>
+                              <a-space>
+                                <a-button type="primary" @click="createApiKey" :loading="apiKeyLoading">Create</a-button>
+                                <a-button @click="loadApiKeys" :loading="apiKeyLoading">Refresh</a-button>
+                              </a-space>
+                            </a-form-item>
+                          </a-form>
+                          <a-alert v-if="generatedApiKey" type="success" show-icon message="API Key created"
+                            description="Save this key now. It will only be shown once." class="mb-10">
+                          </a-alert>
+                          <div v-if="generatedApiKey" class="ant-input"
+                            :style="{ wordBreak: 'break-all', padding: '12px', marginBottom: '12px' }">
+                            [[ generatedApiKey ]]
+                          </div>
+                          <a-button v-if="generatedApiKey" @click="copyApiKey(generatedApiKey)">Copy API Key</a-button>
+                        </a-card>
+                      </a-col>
+                      <a-col :xs="24" :lg="12">
+                        <a-card title="API Key List" hoverable>
+                          <a-empty v-if="apiKeys.length === 0"></a-empty>
+                          <div v-else>
+                            <a-card v-for="item in apiKeys" :key="item.id" size="small"
+                              :style="{ marginBottom: '12px' }">
+                              <a-row :gutter="[8, 8]">
+                                <a-col :span="24">
+                                  <b>Name:</b> [[ item.name ]]
+                                </a-col>
+                                <a-col :span="24">
+                                  <b>Prefix:</b> <code>[[ item.prefix ]]</code>
+                                </a-col>
+                                <a-col :span="24">
+                                  <b>Created:</b> [[ formatTimestamp(item.createdAt) ]]
+                                </a-col>
+                                <a-col :span="24">
+                                  <b>Expires:</b> [[ item.expiresAt ? formatTimestamp(item.expiresAt) : 'Never' ]]
+                                </a-col>
+                                <a-col :span="24">
+                                  <a-button type="danger" size="small" @click="deleteApiKey(item)">Delete</a-button>
+                                </a-col>
+                              </a-row>
+                            </a-card>
+                          </div>
+                        </a-card>
+                      </a-col>
+                    </a-row>
+                  </a-tab-pane>
                 </a-tabs>
               </a-col>
             </a-row>
@@ -125,6 +187,13 @@
       entryProtocol: null,
       entryIsIP: false,
       user: {},
+      apiKeys: [],
+      apiKeyForm: {
+        name: '',
+        expiresAt: 0,
+      },
+      apiKeyLoading: false,
+      generatedApiKey: '',
       lang: LanguageManager.getLanguage(),
       inboundOptions: [],
       remarkModels: { i: 'Inbound', e: 'Email', o: 'Other' },
@@ -320,6 +389,68 @@
           })
         } else {
           sendUpdateUserRequest();
+        }
+      },
+      formatTimestamp(ts) {
+        if (!ts) return 'Never';
+        try {
+          return IntlUtil.formatDate(ts * 1000);
+        } catch (e) {
+          return String(ts);
+        }
+      },
+      async loadApiKeys() {
+        this.apiKeyLoading = true;
+        const msg = await HttpUtil.get('/panel/api/apikeys/list');
+        this.apiKeyLoading = false;
+        if (!msg.success) return;
+        this.apiKeys = Array.isArray(msg.obj) ? msg.obj : [];
+      },
+      async createApiKey() {
+        if (!this.apiKeyForm.name) {
+          this.$message.warning('Please enter API key name');
+          return;
+        }
+        this.apiKeyLoading = true;
+        const msg = await HttpUtil.post('/panel/api/apikeys/create', this.apiKeyForm);
+        this.apiKeyLoading = false;
+        if (!msg.success) return;
+        this.generatedApiKey = msg.obj?.key || '';
+        this.apiKeyForm = {
+          name: '',
+          expiresAt: 0,
+        };
+        await this.loadApiKeys();
+      },
+      async deleteApiKey(item) {
+        await new Promise(resolve => {
+          this.$confirm({
+            title: 'Delete API Key',
+            content: `Delete API key "${item.name}"?`,
+            class: themeSwitcher.currentTheme,
+            okText: '{{ i18n "confirm" }}',
+            cancelText: '{{ i18n "cancel" }}',
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        }).then(async confirmed => {
+          if (!confirmed) return;
+          this.apiKeyLoading = true;
+          const msg = await HttpUtil.post(`/panel/api/apikeys/delete/${item.id}`);
+          this.apiKeyLoading = false;
+          if (!msg.success) return;
+          if (this.generatedApiKey && item.prefix && this.generatedApiKey.startsWith(item.prefix)) {
+            this.generatedApiKey = '';
+          }
+          await this.loadApiKeys();
+        });
+      },
+      async copyApiKey(key) {
+        const ok = await ClipboardManager.copyText(key);
+        if (ok) {
+          this.$message.success('Copied');
+        } else {
+          this.$message.error('Copy failed');
         }
       },
       async restartPanel() {
@@ -628,6 +759,7 @@
       this.entryIsIP = this._isIp(this.entryHost);
       await this.getAllSetting();
       await this.loadInboundTags();
+      await this.loadApiKeys();
       while (true) {
         await PromiseUtil.sleep(1000);
         this.saveBtnDisable = this.oldAllSetting.equals(this.allSetting);
