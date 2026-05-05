@@ -22,10 +22,18 @@
 
 As an enhanced fork of the original X-UI project, 3X-UI provides improved stability, broader protocol support, and additional features.
 
+## Features
+
+- **OpenAPI Support** - Full REST API for programmatic management with API Key authentication
+- **Registry Node** - Automatic node registration and heartbeat for distributed deployments
+- **API Key Management** - Create, list, and delete API keys from the web panel
+
+See [apidoc.md](/apidoc.md) for complete API documentation.
+
 ## Quick Start
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/rakim0125/3x-ui/main/install.sh)
 ```
 
 For full documentation, please visit the [project Wiki](https://github.com/MHSanaei/3x-ui/wiki).
